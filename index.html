@@ -11,7 +11,7 @@
 /* Einheitliche Kartenhöhen und saubere iPhone-Darstellung */
 .grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.grid>.metric{min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-start}.metric strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.tab-panel .card,.watering-panel{min-width:0}.result{overflow-wrap:anywhere}.circuit-setting,.circuit-recommendation{margin:8px 0;line-height:1.5}.sprinkler-days{margin-top:15px;border-top:1px solid #cddfcd;padding-top:12px}.sprinkler-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.sprinkler-day{display:flex;flex-direction:column;gap:5px;border-radius:12px;background:#f7f9f5;padding:10px;font-size:12px;min-width:0}.sprinkler-day strong{font-size:13px}.sprinkler-day small{color:#536b5e}.sprinkler-day.stop{background:#e5f2e7}.sprinkler-day.check{background:#fff6e7}@media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:10px}.metric strong{font-size:20px}.tabbar button{font-size:11px}.sprinkler-grid{grid-template-columns:1fr}}
 </style></head>
-<body><header><div class="eyebrow">🌿 Garten-Dashboard · Version 10.10.2026-D</div><h1>Mein Garten</h1><div>📍 München · Maxvorstadt</div><div id="status">Wetter wird geladen …</div></header><main>
+<body><header><div class="eyebrow">🌿 Garten-Dashboard · Version 10.10.2026-E</div><h1>Mein Garten</h1><div>📍 München · Maxvorstadt</div><div id="status">Wetter wird geladen …</div></header><main>
 <nav class="quicknav" aria-label="Bereiche der Garten-App"><a href="#hedgeCard">🌲 Hecke planen</a><a href="#calendarCard">📅 Jahreskalender</a><a href="#backupSettings">⚙️ Backup</a></nav>
 <section class="card hero"><h2 style="margin-top:14px" id="recommendation">Deine Empfehlung wird berechnet …</h2><p id="reason">Wetterdaten werden geladen.</p><div class="controls"><button id="refresh">↻ Wetter aktualisieren</button><button class="secondary" id="water">💧 Heute gegossen</button></div><small id="lastWater" style="display:block;margin-top:12px"></small></section>
 <section class="card"><h2>🌤 Aktuelles Wetter</h2><div class="grid"><div class="metric"><small>Temperatur</small><strong id="temp">–</strong><small id="weatherLabel">–</small></div><div class="metric"><small>Regen heute</small><strong id="rain">–</strong><small>Vorhersage in mm</small></div><div class="metric"><small>Nächste 24 h</small><strong id="nextRain">–</strong><small>Regenmenge</small></div><div class="metric"><small>Tiefstwert 7 Tage</small><strong id="frost">–</strong><small id="frostLabel">Frostcheck</small></div></div></section>
@@ -408,6 +408,10 @@ $('plantForm')?.addEventListener('submit',()=>setTimeout(render,100));$('plantLi
 
 <style>
 /* Sichtbarer Rasen-Pflegekalender und 7-Tage-Ampel; keine Gardena-Sektion im Beet */
+#panel-lawn .hero #recommendation,#panel-lawn .hero #reason{display:none!important}
+#panel-lawn .hero{background:#fff;border:0;padding:12px 19px}
+#panel-lawn .hero .controls{margin-top:0}
+#panel-lawn #rainFrostWarning{display:none!important}
 #panel-lawn #calendarCard{display:block!important}
 #panel-bed .watering-panel,#panel-bed section.card:has(#result-bed){display:none!important}
 .lawn-week{margin-top:12px}.lawn-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.lawn-week-day{min-width:0;text-align:center;border:1px solid #dbe7dc;border-radius:10px;padding:9px 2px;font-size:11px}.lawn-week-dot{display:block;width:19px;height:19px;border-radius:50%;margin:7px auto}.lawn-week-dot.red{background:#d94c45}.lawn-week-dot.yellow{background:#e3a324}.lawn-week-dot.green{background:#2b9a55}
@@ -418,7 +422,17 @@ $('plantForm')?.addEventListener('submit',()=>setTimeout(render,100));$('plantLi
  const card=document.createElement('section');card.className='card lawn-week';card.innerHTML='<h2>📅 Nächste 7 Tage</h2><div class="lawn-week-grid" id="lawnWeekGrid"></div><small class="muted">Ampel nach Wetterprognose. Bodenfeuchte vor Ort prüfen.</small>';
  const signal=panel.querySelector('.area-signal')?.closest('section');if(signal)signal.after(card);else panel.prepend(card);
  function render(){const grid=document.getElementById('lawnWeekGrid');if(!grid)return;const d=typeof lastWeather!=='undefined'?lastWeather?.daily:null;if(!d?.time?.length){grid.textContent='Wetterdaten werden geladen …';return}grid.replaceChildren();d.time.slice(0,7).forEach((day,i)=>{const rain=Number(d.precipitation_sum?.[i]||0),low=Number(d.temperature_2m_min?.[i]||0),high=Number(d.temperature_2m_max?.[i]||0);const color=low<=1||rain>=5?'red':rain>=2||high<7?'yellow':'green';const el=document.createElement('div');el.className='lawn-week-day';const date=document.createElement('strong');date.textContent=new Intl.DateTimeFormat('de-DE',{weekday:'short'}).format(new Date(day+'T12:00:00'));const dot=document.createElement('span');dot.className='lawn-week-dot '+color;dot.setAttribute('role','img');dot.setAttribute('aria-label',color==='red'?'Rot':color==='yellow'?'Gelb':'Grün');const amount=document.createElement('span');amount.textContent=rain.toFixed(0)+' mm';el.append(date,dot,amount);grid.append(el)})}
- const previous=advice;advice=function(data){previous(data);render()};render();
+ const frostCard=document.createElement('section');frostCard.className='card lawn-frost';
+ frostCard.innerHTML='<h2>❄️ Froststatus</h2><p id="lawnFrostStatus" role="status">Wetterdaten werden geladen …</p>';
+ card.after(frostCard);
+ function renderFrost(){const out=document.getElementById('lawnFrostStatus');const d=typeof lastWeather!=='undefined'?lastWeather?.daily:null;if(!out)return;
+ if(!d?.time?.length){out.textContent='Keine Wetterdaten – Frostgefahr bitte selbst prüfen.';return}
+ const days=d.time.map((day,i)=>({day,low:Number(d.temperature_2m_min?.[i])})).filter(x=>Number.isFinite(x.low)&&x.low<=2);
+ if(!days.length){out.textContent='🟢 Kein Frost in Sicht – in den nächsten 7 Tagen über 2 °C vorhergesagt.';return}
+ const first=days[0],when=new Date(first.day+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'numeric'});
+ out.textContent='🔴 '+(first.low<=0?'Frostwarnung':'Frostnähe')+' ab '+when+' ('+first.low.toLocaleString('de-DE')+' °C). Gardena-Anlage rechtzeitig winterfest machen.';
+ }
+ const previous=advice;advice=function(data){previous(data);render();renderFrost()};render();renderFrost();
 })();
 </script>
 </body></html>
